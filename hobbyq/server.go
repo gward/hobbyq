@@ -15,6 +15,7 @@ import (
 type Server struct {
 	address string				// host:port
 	exchanges map[string] *Exchange
+	queues map[string] *Queue
 }
 
 // Return a new Server struct. It's ready to listen for connections but
@@ -23,6 +24,7 @@ func NewServer(addr string) *Server {
 	return &Server{
 		addr,
 		make(map[string] *Exchange),
+		make(map[string] *Queue),
 	}
 }
 
@@ -200,6 +202,26 @@ func cmd_xmake(server *Server, args []string) (resp []byte, err error) {
 	return
 }
 
+// Conditionally create a queue.
+func cmd_qmake(server *Server, args []string) (resp []byte, err error) {
+	// Hmmmm: this is basically identical to cmd_xmake().
+	resp = RESP_BAD_ARGS
+	if len(args) != 1 {
+		err = errors.New("QMAKE: require exactly one argument")
+		return
+	}
+	name := args[0]
+	queue := server.queues[name]
+	if queue == nil {
+		server.queues[name] = NewQueue(name)
+		resp = RESP_CREATED
+	} else {
+		resp = RESP_OK
+	}
+	return
+}
+
 var COMMAND_FUNC = map[string] func(*Server, []string) ([]byte, error){
 	"XMAKE": cmd_xmake,
+	"QMAKE": cmd_qmake,
 }
