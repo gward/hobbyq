@@ -14,12 +14,16 @@ import (
 
 type Server struct {
 	address string				// host:port
+	exchanges map[string] *Exchange
 }
 
 // Return a new Server struct. It's ready to listen for connections but
 // not actually listening. Call Run() to make that happen.
 func NewServer(addr string) *Server {
-	return &Server{addr}
+	return &Server{
+		addr,
+		make(map[string] *Exchange),
+	}
 }
 
 // Start listening for connections. Run forever waiting for clients
@@ -35,14 +39,14 @@ func (server *Server) Run() error {
 			return nil
 		}
 		log.Printf("received client connection: %s", conn.RemoteAddr())
-		go handleConnection(conn)
+		go server.handleConnection(conn)
 	}
 
 	return nil
 }
 
 // Handle a single client connection, for however long that might take.
-func handleConnection(conn net.Conn) {
+func (server *Server) handleConnection(conn net.Conn) {
 	defer conn.Close()
 
 	err := handshake(conn)
@@ -51,7 +55,7 @@ func handleConnection(conn net.Conn) {
 		return
 	}
 	for {
-		err = processCommand(conn)
+		err = server.processCommand(conn)
 		if err == io.EOF {
 			log.Printf("client disconnected")
 			break
@@ -94,14 +98,14 @@ func handshake(conn io.ReadWriter) error {
 	}
 
 	// Successful handshake.
-	resp = RESP_HANDSHAKE_OK
+	resp = RESP_OK
 	return nil
 }
 
 // Read and process a single command. If client input is malformed and
 // cannot be parsed, return an error. Otherwise respond to the client,
 // possibly with an error response, and return nil.
-func processCommand(conn io.ReadWriter) error {
+func (server *Server) processCommand(conn io.ReadWriter) error {
 	cmd, err := readString(conn)
 	log.Printf("cmd = %q, err = %v", cmd, err)
 	if err != nil {
@@ -117,7 +121,11 @@ func processCommand(conn io.ReadWriter) error {
 		conn.Write(RESP_UNKNOWN_CMD)
 		return nil
 	}
-	return cfunc(args)
+	resp, err := cfunc(server, args)
+	if len(resp) > 0 {
+		conn.Write(resp)
+	}
+	return err
 }
 
 func readString(conn io.Reader) (value string, err error) {
@@ -172,15 +180,26 @@ func readLengthByte(conn io.Reader) (value int, err error) {
 	return
 }
 
-func cmd_XMAKE(args []string) (err error) {
+// Conditionally create an exchange: if it already exists, do nothing
+// and return RESP_OK. If it doesn't exist, create it and return
+// RESP_CREATED.
+func cmd_xmake(server *Server, args []string) (resp []byte, err error) {
+	resp = RESP_BAD_ARGS
 	if len(args) != 1 {
 		err = errors.New("XMAKE: require exactly one argument")
 		return
 	}
-
+	name := args[0]
+	exchange := server.exchanges[name]
+	if exchange == nil {
+		server.exchanges[name] = NewExchange(name)
+		resp = RESP_CREATED
+	} else {
+		resp = RESP_OK
+	}
 	return
 }
 
-var COMMAND_FUNC = map[string] func([]string) error{
-	"XMAKE": cmd_XMAKE,
+var COMMAND_FUNC = map[string] func(*Server, []string) ([]byte, error){
+	"XMAKE": cmd_xmake,
 }

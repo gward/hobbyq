@@ -5,8 +5,10 @@ package hobbyq
 // probably a separate package!)
 
 var (
-	RESP_HANDSHAKE_OK = []byte("200\x00")
+	RESP_OK = []byte("200\x00")
+	RESP_CREATED = []byte("201\x00")
 	RESP_BAD_SYNTAX = []byte("400\x00")
 	RESP_UNKNOWN_CMD = []byte("405\x00")
+	RESP_BAD_ARGS = []byte("406\x00")
 	RESP_UNSUPPORTED_VERSION = []byte("451\x00")
 )
