@@ -32,6 +32,7 @@ func NewServer(addr string) *Server {
 // and handling them. Never returns, unless there is an error.
 func (server *Server) Run() error {
 	listener, err := net.Listen("tcp", server.address)
+	defer listener.Close()
 	if err != nil {
 		return err
 	}
