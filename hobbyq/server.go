@@ -5,6 +5,7 @@ package hobbyq
 import (
 	"bytes"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -26,6 +27,23 @@ func NewServer(addr string) *Server {
 		make(map[string] *Exchange),
 		make(map[string] *Queue),
 	}
+}
+
+func (server *Server) MarshalJSON() ([]byte, error) {
+	exchanges := make([]*Exchange, 0, len(server.exchanges))
+	for _, val := range server.exchanges {
+		exchanges = append(exchanges, val)
+	}
+	queues := make([]*Queue, 0, len(server.queues))
+	for _, val := range server.queues {
+		queues = append(queues, val)
+	}
+
+	var output = map[string] interface{}{
+		"exchanges": exchanges,
+		"queues": queues,
+	}
+	return json.Marshal(output)
 }
 
 // Start listening for connections. Run forever waiting for clients
@@ -222,7 +240,41 @@ func cmd_qmake(server *Server, args []string) (resp []byte, err error) {
 	return
 }
 
+// Dump the state of server to a string. Format of the string is
+// specified as the first arugment: "json" or "text".
+func cmd_dump(server *Server, args []string) (resp []byte, err error) {
+	resp = RESP_BAD_ARGS
+	if len(args) != 1 {
+		err = errors.New("DUMP: require exactly one argument")
+		return
+	}
+	format := args[0]
+	if format != "json" {
+		err = errors.New("DUMP: unsupported format (allowed: json)")
+		return
+	}
+	buf, err := json.Marshal(server)
+	if err != nil {
+		resp = RESP_INTERNAL_ERR
+		return
+	}
+	if len(buf) > 255 {
+		resp = RESP_INTERNAL_ERR
+		err = errors.New("DUMP: server state > 255 bytes")
+		return
+	}
+	log.Printf("DUMP buf = %q", buf)
+	resp = make([]byte, 3 + 1 + 1 + len(buf))
+	copy(resp, []byte("200\x01"))
+	resp[4] = byte(len(buf))
+	copy(resp[5:], buf)
+	log.Printf("DUMP resp = %q", resp)
+
+	return
+}
+
 var COMMAND_FUNC = map[string] func(*Server, []string) ([]byte, error){
 	"XMAKE": cmd_xmake,
 	"QMAKE": cmd_qmake,
+	"DUMP": cmd_dump,
 }

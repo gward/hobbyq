@@ -11,4 +11,5 @@ var (
 	RESP_UNKNOWN_CMD = []byte("405\x00")
 	RESP_BAD_ARGS = []byte("406\x00")
 	RESP_UNSUPPORTED_VERSION = []byte("451\x00")
+	RESP_INTERNAL_ERR = []byte("500\x00")
 )
