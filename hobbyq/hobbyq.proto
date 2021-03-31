@@ -1,0 +1,14 @@
+syntax = "proto3";
+package hobbyq;
+
+option go_package = "hobbyq/pb";
+
+message Request {
+    string command = 1;
+    repeated string args = 2;
+}
+
+message Response {
+    uint32 status = 1;
+    repeated string args = 2;
+}

@@ -11,3 +11,9 @@ Here are the features I'm aiming to provide:
 * durable or temporary queues, at the consumer's choice (like RabbitMQ)
 * messages are pushed to consumers over a socket
 * or messages can be pushed by a webhook
+
+
+## Build dependencies
+
+* go
+* protobuf-compiler
